@@ -1,0 +1,24 @@
+{
+    "name": "Roam Templates", 
+    "description": "WIP", 
+    "version": "1.0", 
+    "manifest_version": 2, 
+    "content_scripts": [{
+        "matches": ["*://roamresearch.com/*"],
+        "run_at": "document_end", 
+        "all_frames": true, 
+        "js": ["main.js"]
+    }], 
+    "background": {
+        "scripts": ["background.js"], 
+        "persistent": false
+    }, 
+    "permissions": [
+        "*://roamresearch.com/*", 
+        "storage", 
+        "activeTab", 
+        "tabs", 
+        "clipboardWrite", 
+        "clipboardRead"
+    ]
+}
