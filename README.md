@@ -1,13 +1,11 @@
 # Roam-Templates
 
-This is my first attempt (about 5 concentrated hours) at creating a chrome extension to implement templates in Roam Research. It didn't work. There's no API published yet. They're working on it, but don't count on it right now. 
+As a programmer, anything that I don't want to do I will try to automate. Every day, when I open Roam the first time, I have to copy a template into my daily notes page. This takes a grand total of 2 seconds, but it's 2 seconds I don't want to spend. 
 
-For anybody who may want to try, here's what I learned: 
+1. Setup the chrome extension 
+2. Open your template file 
+3. Select all the text you want to save as your template
+4. Click the chrome extension icon (you will see an alert appear)
+5. Now every time you open the page with your daily notes it will be auto filled with the template 
 
-- Feel free to look at the code to see how I scraped the HTML and nested divs. But it's very strange because you can't actually just set text in a bullet. 
-- If you're a long-time user of Roam you know bullets have two forms: (1) this sort of "preview" and then when you click into it (2) the actual text. 
-- The problem is, that 2nd form only appears to get loaded after you physically click into the bullet. Essentially, before there's a span containing the preview text, then when you click it, a textarea is generated with the actual text. 
-- So there's some shenanigans going on with actually being able to edit information. I tried copy pasting, but I didn't know how to generate the textarea and force a click. 
-- Trying to force a click didn't work, but I'm also not a web developer so I don't know how it works in general. 
-
-gl hf, roam on. 
+I just finished this, may clean it up and add docs later... have fun. 
