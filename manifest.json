@@ -1,6 +1,6 @@
 {
     "name": "Roam Templates", 
-    "description": "WIP", 
+    "description": "An extension to let you auto-populate your daily notes with a template!", 
     "version": "1.0", 
     "manifest_version": 2, 
     "content_scripts": [{
@@ -8,10 +8,16 @@
         "run_at": "document_end", 
         "all_frames": true, 
         "js": ["main.js"]
-    }], 
+    }],
     "background": {
         "scripts": ["background.js"], 
-        "persistent": false
+        "persistent": false 
+    }, 
+    "browser_action": {}, 
+    "icons": {
+        "16": "icons/icon-16.png",
+        "48": "icons/icon-48.png", 
+        "128": "icons/icon-128.png"
     }, 
     "permissions": [
         "*://roamresearch.com/*", 

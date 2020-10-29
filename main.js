@@ -1,156 +1,118 @@
-const MAX_WAIT_TIME  = 10;  // seconds
-const RETRY_INTERVAL = 250; // milliseconds
-
-const ERROR_TITLE    = "ERROR_TITLE"; 
-const ERROR_BODY     = "ERROR_BODY"; 
-
-const EMPTY = '<div class="flex-v-box roam-block-container block-bullet-view"><div><div class="flex-h-box flex-align-start flex-justify-start"><div class="controls"><span class="block-expand"><span class="bp3-icon-standard bp3-icon-caret-down rm-caret rm-caret-open rm-caret-hidden"></span></span><span class="simple-bullet-outer cursor-pointer" draggable="true"><span class="simple-bullet-inner"></span></span></div><div id="block-input-PUMxei9vTDQWxisJvIloKEqj8JY2-body-outline-w4w53c0p1-8_GVAn3t9" class="roam-block dont-unfocus-block hoverparent rm-block-text" tabindex="0"><span>asdf</span></div><div style="flex: 1 0 0px;"></div></div></div><div class="flex-v-box" style="margin-left: 20px;"></div></div><div class="flex-v-box roam-block-container block-bullet-view"><div><div class="flex-h-box flex-align-start flex-justify-start"><div class="controls"><span class="block-expand"><span class="bp3-icon-standard bp3-icon-caret-down rm-caret rm-caret-open rm-caret-hidden"></span></span><span class="simple-bullet-outer cursor-pointer" draggable="true"><span class="simple-bullet-inner"></span></span></div><div id="block-input-PUMxei9vTDQWxisJvIloKEqj8JY2-body-outline-w4w53c0p1-z-tVzLx08" class="roam-block dont-unfocus-block hoverparent rm-block-text" tabindex="0"><span></span></div><div style="flex: 1 0 0px;"></div></div></div><div class="flex-v-box" style="margin-left: 20px;"></div></div>';
-
-function click(x, y, element) {
-    var ev = new MouseEvent('click', {
-        'view': window,
-        'bubbles': true,
-        'cancelable': false,
-        'screenX': x,
-        'screenY': y
-    });
-    element.dispatchEvent(ev);
-}
-
-function click(x, y){
-    var ev = new MouseEvent('click', {
-        'view': window,
-        'bubbles': true,
-        'cancelable': false,
-        'screenX': x,
-        'screenY': y
-    });
-    let element = document.elementFromPoint(x,y);
-    element.dispatchEvent(ev); 
-}
-
 // ----------------------------------
 // Logging
 // ----------------------------------
-const LOG = true; 
+const LOGGING = false; 
+function log(text) { if (LOGGING) console.log(text); }
+function logMethod(text) { log("-----" + text + "-----"); }
 
-function log(text) {
-    if (LOG) console.log(text); 
+// ----------------------------------
+// Clicking
+// ----------------------------------
+const CLICK_DELAY = 50; 
+
+function triggerMouseDown(element) {
+    let event = document.createEvent('MouseEvents'); 
+    event.initMouseEvent('mousedown', true, true); 
+    event.shiftKey = true; 
+    element.dispatchEvent(event);
 }
 
 // ----------------------------------
-// Roam Page - getting information
+// Clipboard
 // ----------------------------------
-function getPage() {
-    return document.getElementsByClassName("roam-article")[0]; 
+function loadIntoClipboard(text) {
+    let temp = document.createElement('textarea'); 
+    document.body.appendChild(temp); 
+    temp.value = text; 
+
+    temp.focus(); 
+    temp.select(); 
+    document.execCommand('copy'); 
+    temp.remove(); 
 }
 
-function getTitle(page) {
-    // We don't actually need page to get the title here 
-    // We just pass it in to keep consistency with getBody 
+/**
+ * @returns {String} the text copied in the clipboard
+ */
+function loadFromClipboard() {
+    let temp = document.createElement('textarea'); 
+    document.body.appendChild(temp); 
+
+    temp.focus(); 
+    temp.select(); 
+    document.execCommand('paste'); 
+
+    let text = temp.value; 
+    temp.remove();
+    return text; 
+}
+
+/**
+ * @returns {String} the text that is currently selected
+ */
+function loadFromSelected() {
+    document.execCommand('copy');
+    return loadFromClipboard(); 
+}
+
+/**
+ * @param {*} element - the element to be pasted into 
+ * @param {*} text - the text to paste
+ */
+function pasteIntoElement(element, text) {
+    loadIntoClipboard(text); 
+    triggerMouseDown(element);
+    setTimeout(function() {
+        document.execCommand('paste');
+        log("pasted text: " + text);  
+    }, CLICK_DELAY); 
+}
+
+// ----------------------------------
+// Storage
+// ----------------------------------
+const DAILY_TEMPLATE_KEY = "DAILY_TEMPLATE_KEY"; // Stores the current daily template stored 
+
+function putToStorage(key, value) {
+    let json = {}; 
+    json[key] = value; 
+    chrome.storage.sync.set(json, function() {
+        log("put key: " + key);
+    }); 
+}
+
+const RETRIEVAL_ERROR = "RETRIEVAL_ERROR"; 
+
+function getFromStorage(key, callback) {
+    chrome.storage.sync.get([key], function(result) {
+        log("retrieved key: " + key);
+        log(result); 
+        if (result == undefined || result[key] == undefined) 
+            callback(RETRIEVAL_ERROR); 
+        else callback(result[key]); 
+    });
+}
+
+// ----------------------------------
+// Roam functions - title 
+// ----------------------------------
+const ERROR_TITLE    = "ERROR_TITLE"; 
+
+/**
+ * @returns {String} the title of the current Roam page
+ * @returns {String} ERROR_TITLE if there is no title 
+ */
+function getTitle() {
     let titleContainer = document.getElementsByClassName("rm-title-display"); 
     if (titleContainer == null || titleContainer.length == 0) return ERROR_TITLE; 
     else return titleContainer[0].textContent; 
 }
 
-
-function getBody(page) {
-    // For body, there's actually a discrepency between the HTML on a normal page, and daily notes
-    // We will use the existence of the "roam-log-page" (exclusive to daily notes) to differentiate this case
-    let roamLogPage = document.getElementsByClassName("roam-log-page"); 
-
-    let body; 
-    if (roamLogPage.length == 0) {
-        // Normal page
-        body = page.childNodes[0].childNodes[1]; 
-    } else {
-        // Daily notes
-        body = roamLogPage[0].childNodes[1]; 
-    }
-
-    log("body: "); 
-    log(body); 
-
-    let roamBlock = body.childNodes[0].childNodes[0].childNodes[0].childNodes[1]; 
-    log("roamBlock: "); 
-    log(roamBlock);
-
-    let innerBlock = roamBlock.childNodes[0]; 
-    log("innerBlock: "); 
-    log(innerBlock);
-
-    let what = document.getElementsByClassName("rm-block-text")[0]; 
-    log("what: "); 
-    log(what); 
-    what.click(); 
-
-    let whatinside = what.childNodes[0]; 
-    log("whatinside: "); 
-    log(whatinside); 
-
-    let regex = /block-input-/g;
-    let result, id;  
-    while (result = regex.exec(page.innerHTML)) {
-        let index = result.index; 
-        while (page.innerHTML.charAt(index) != '"') index++; 
-
-        id = page.innerHTML.substring(result.index, index); 
-
-        log("found " + id + " at index: " + result.index); 
-
-    }
-
-    let textArea = document.getElementById(id); 
-    log("textArea: "); 
-    log(textArea); 
-    textArea.click();
-
-    setTimeout(function() {
-
-        chrome.runtime.sendMessage({
-            type: "COPY_AND_PASTE", 
-            text: "if this works I'm the GOAT"
-        }, (response) => {
-            log("got response: " + response.status); 
-
-            log("clicking roamBlock"); 
-            // roamBlock.click(); 
-
-            // textArea.contentEditable = true; 
-            // what.click(); 
-            // textArea.focus(); 
-
-            let box = what.getBoundingClientRect(); 
-            let x = box.left; 
-            let y = box.top; 
-
-            log("top left corner at: (" + x + ", " + y + ")");
-
-            // document.elementFromPoint(x + 50, y + 10).click();
-            click(380, 332); 
-            click(380, 332, textArea); 
-            // document.elementFromPoint(370, 166).click();
-
-            
-            document.execCommand('paste'); 
-        }); 
-
-    }, 1000);
-
-    
-
-    log("sent message"); 
-
-
-    return "TODO";
-}
-
-// ----------------------------------
-// Roam Page - helpers
-// ----------------------------------
-
-// Clean a string of a single instance of "st,", "nd,", "rd,", or "th,"
-// If there are more than one instance, returns ERROR_TITLE
+/**
+ * @param {String} title 
+ * @returns {String} the cleaned title, removing a a single instance of "st,", "nd,", "rd,", or "th,"
+ * @returns {String} ERROR_TITLE if there is more than one instance of the above
+ */
 function cleanTitle(title) {
     let count = 0; 
     for (var i = title.length - 3; i >= 0; i--) {
@@ -172,8 +134,15 @@ function cleanTitle(title) {
     return title; 
 }
 
-function isTitleToday(title) {
+/**
+ * @returns {Boolean} whether the title of the page corresponds to the current day 
+ */
+function isTitleToday() {
+    let title = getTitle(); 
     log("isTitleToday with title = " + title); 
+
+    // No title found 
+    if (title === ERROR_TITLE) return false; 
 
     let cleanedTitle = cleanTitle(title); 
     let date = new Date(cleanedTitle);
@@ -191,27 +160,158 @@ function isTitleToday(title) {
         && date.getDay() == today.getDay(); 
 }
 
-function isBodyEmpty(body) {
+// ----------------------------------
+// Roam functions - bullets 
+// ----------------------------------
 
+function isBulletTextEmpty(text) {
+    return text === "" || text === "Click here to start writing"; 
 }
 
-function isLoaded(page) {
-    if (page == null) return false;
-    let title = getTitle(page); 
-    // let body = getBody(page); 
-    let body = "doesn't really matter"; 
-    return title !== ERROR_TITLE && body !== ERROR_BODY; 
+/**
+ * @returns {*} the list of bullets
+ */
+function getBullets() {
+    return document.getElementsByClassName("roam-block"); 
+}
+
+/**
+ * @param {*} bullet 
+ * @returns {String} the text of the Roam bullet
+ */
+function getUnclickedBulletText(bullet) {
+    // Depending on whether we are on daily notes or a normal page, we have different ways to get the raw text
+    // We will use the existence of the "roam-log-page" (exclusive to daily notes) to differentiate this case
+    let roamLogPage = document.getElementsByClassName("roam-log-page"); 
+    log("roamLogPage: "); 
+    log(roamLogPage); 
+
+    log("bullet: "); 
+    log(bullet); 
+
+    if (roamLogPage.length == 0) {
+        // Normal page 
+        log("Normal page"); 
+        return bullet.childNodes[0].textContent; 
+    } else {
+        // Daily notes 
+        log("Daily notes"); 
+        let t = bullet.childNodes[0].textContent; 
+        log("t: "); log(t); 
+        
+        return t; 
+    }
+}
+
+/**
+ * @returns {Boolean} whether the current Roam page has an empty body
+ * Note, we define empty as the first bullet not having text 
+ */
+function isPageBodyEmpty() {
+    logMethod("isPageBodyEmpty"); 
+
+    let bullets = getBullets();
+    log("bullets: "); log(bullets); 
+
+    // no bullets 
+    if (bullets.length == 0) return false; 
+
+    let bullet = bullets[0]; 
+    let text = getUnclickedBulletText(bullet); 
+    return isBulletTextEmpty(text); 
+}
+
+const ERROR_PAGE = "ERROR_PAGE"; 
+
+/**
+ * @returns {String} the page in the form of a string that can be pasted 
+ */
+function getTextFromPage() {
+    // I attempted to trigger a Cmd-a (select all) and shift clicking, but neither worked 
+    // So this implementation just loops through the divs and manually obtains the information 
+    // To get indents, there's some tricky business involved. I use the left bounds of each bullet point 
+    // The algorithm to determine indexes uses quite a few shortcuts, so it's not super precise
+    
+    // This doesn't work 
+    // You need to somehow grab the markdown 
+    // Which appears... difficult 
+    // So as a work around, just select the content to copy before clicking the chrome extension 
+
+    logMethod("getTextFromPage"); 
+    let bullets = getBullets(); 
+    if (bullets.length == 0) return ERROR_PAGE; 
+
+    let pageText = ""; 
+
+    let indents = []; 
+    for (var i = 0; i < bullets.length; i++) {
+        let bullet = bullets[i]; 
+        let text = getUnclickedBulletText(bullet); 
+        let left = bullet.getBoundingClientRect().left; 
+        
+        let indent; 
+        let indentIndex = indents.indexOf(left); 
+        if (indentIndex >= 0) {
+            indent = indentIndex; 
+        } else {
+            // Technically left should be greater than any value in indents
+            // As it should be a new level of nesting 
+            // If it isn't, well, we'll just do nothing 
+            if (left < indents[-1]) {
+                log("left < Mindents[-1]. This shouldn't happen"); 
+            } else {
+                indents.push(left); 
+            }
+            indent = indents.length - 1; 
+        }
+
+        while (indent-- > 0) pageText += "\t"; 
+        pageText += "- "; 
+        pageText += text; 
+        if (i != bullets.length - 1) pageText += "\n"; 
+
+        log(bullet); 
+        log(pageText); 
+    }
+
+    return pageText; 
+}
+
+/**
+ * @returns {Boolean} whether or not the save was successful 
+ */
+function savePageToStorage() {
+    // let pageText = getTextFromPage(); // Doesn't work 
+    let pageText = loadFromSelected(); 
+    if (pageText === ERROR_PAGE) {
+        return false; 
+    } else {
+        log("saving pageText: "); 
+        log(pageText); 
+        putToStorage(DAILY_TEMPLATE_KEY, pageText); 
+        return true; 
+    }
 }
 
 // ----------------------------------
 // Actual logic
 // ----------------------------------
+/**
+ * @returns {Boolean} whether the current Roam page is loaded
+ */
+function isLoaded() {
+    let title = getTitle(); 
+    return title !== ERROR_TITLE; 
+}
+
+const MAX_WAIT_TIME  = 10;  // seconds
+const RETRY_INTERVAL = 250; // milliseconds
+
 function attemptReplaceDailyTemplate(numRetries) {
     log("attemptReplaceDailyTemplate with numRetries = " + numRetries); 
 
-    let page = getPage(); 
-    if (isLoaded(page)) {
-        replaceDailyTemplate(page); 
+    if (isLoaded()) {
+        replaceDailyTemplate(); 
     } else {
         if (numRetries < MAX_WAIT_TIME * 1000 / RETRY_INTERVAL) {
             // Retry 
@@ -222,43 +322,47 @@ function attemptReplaceDailyTemplate(numRetries) {
     }
 }
 
-function replaceDailyTemplate(page) {
-    log("replaceDailyTemplate with page: ");
-    log(page); 
+function replaceDailyTemplate() {
+    log("replaceDailyTemplate");
 
-    let title = getTitle(page); 
-    let body = getBody(page); 
-
-    log("title = " + title + " and body = " + body); 
-
-    let x = isTitleToday(title); 
-    if (x) {
-        log("today");
-    } else {
-        log("not today"); 
+    // We only replace on today's daily notes
+    if (!isTitleToday()) {
+        log("Note not today, not replacing"); 
+        return; 
     }
-};
 
+    // We require the page to be empty 
+    if (!isPageBodyEmpty()) {
+        log("Note not empty, not replacing");
+        return; 
+    }
+
+    getFromStorage(DAILY_TEMPLATE_KEY, function(page) {
+        if (page === RETRIEVAL_ERROR) {
+            log("Saved not found, not replacing");
+        } else {
+            log("replacingDailyTemplate with page: " + page); 
+
+            let bullet = getBullets()[0]; 
+            pasteIntoElement(bullet, page); 
+        }
+    });
+};
 
 // ----------------------------------
 // Actual running 
 // ----------------------------------
-function activeElement() {
-    setTimeout(function() {
-        log("active element"); 
-        log(document.activeElement);
-        activeElement(); 
-    }, 1000); 
-}
-
-activeElement(); 
-
-// document.addEventListener('click', function (event) {
-// 	console.log("clicked:" + "(" + event.screenX + ", " + event.screenY + ")");
-// }, false);
-
 attemptReplaceDailyTemplate(0); 
 
-
-
-
+// Listen to URL updates from background script 
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    if (request.message === "clicked") {
+        // The icon was clicked (received by background)
+        // We will try to save the current page to the background 
+        if (isLoaded() && savePageToStorage()) {
+            alert("Saved " + getTitle() + " successfully"); 
+        }; 
+    } else if (request.message === "changed") {
+        attemptReplaceDailyTemplate(0); 
+    }
+});
